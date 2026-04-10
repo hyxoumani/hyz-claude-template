@@ -184,32 +184,84 @@ echo "Testing: {test_command}..."
 
 Run the detected test command with a short timeout to verify it works. Report pass/fail.
 
-## Step 11: Create directories
+## Step 11: Create .gitignore files for Claude-generated artifacts
+
+Create two `.gitignore` files — one inside `.claude/` for Claude-internal generated
+files, and one update to the project root `.gitignore` for project-level outputs.
+
+### `.claude/.gitignore` (Claude-internal)
+
+Create `.claude/.gitignore` with these patterns:
+
+```bash
+cat > .claude/.gitignore << 'GITIGNORE'
+# Local settings (per-developer)
+settings.local.json
+
+# Agent memory (session-generated, not portable)
+agent-memory/
+GITIGNORE
+
+echo "OK: .claude/.gitignore created"
+```
+
+### Project `.gitignore` (project-level outputs)
+
+Append Claude output patterns to the project's `.gitignore`. Only add entries that
+aren't already present:
+
+```bash
+touch .gitignore
+
+for pattern in \
+  "docs/sessions/" \
+  "results.tsv" \
+  "run.log" \
+  "evals/results/" \
+  "*.log"; do
+  grep -qxF "$pattern" .gitignore 2>/dev/null || echo "$pattern" >> .gitignore
+done
+
+echo "OK: .gitignore updated with Claude output patterns"
+```
+
+## Step 12: Create directories
 
 ```bash
 mkdir -p docs/plans docs/sessions
 ```
 
-## Step 12: Commit
+## Step 13: Commit
 
-Stage only portable framework files (respect .gitignore):
+Stage framework files and both `.gitignore` files:
 
 ```bash
-git add CLAUDE.md .claude/framework.json .claude/PRINCIPLES.md \
-  .claude/.gitignore .claude/CLAUDE.md.template \
+git add CLAUDE.md .gitignore .claude/.gitignore \
+  .claude/framework.json .claude/PRINCIPLES.md \
+  .claude/CLAUDE.md.template \
   .claude/agents/ .claude/hooks/ .claude/rules/ \
   .claude/commands/ .claude/skills/ .claude/settings.json \
   docs/
 git commit -m "chore: bootstrap solo-dev framework"
 ```
 
-Do NOT stage `.claude/settings.local.json`.
+Do NOT stage `.claude/settings.local.json` or `.claude/agent-memory/`.
 
-## Step 13: Summary
+## Step 14: Summary
 
 Print what was configured:
 - Stack and commands detected
 - Rules files created
 - Hooks status (working/warning)
 - Metric configured or skipped
-- Next step suggestion: "What would you like to work on?"
+- `.gitignore` files created (`.claude/.gitignore` + project root)
+
+## Step 15: Next steps
+
+Tell the user bootstrap is complete, then prompt them to relaunch with the orchestrator:
+
+> Bootstrap complete. To start working with the full agent pipeline, relaunch with:
+>
+> ```
+> claude --agent orchestrator
+> ```
