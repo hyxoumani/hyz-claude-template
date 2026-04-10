@@ -1,0 +1,10 @@
+settings.local.json
+docs/sessions/
+*.log
+.DS_Store
+results.tsv
+run.log
+evals/results/
+*.swp
+*.swo
+*~
