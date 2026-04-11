@@ -255,12 +255,27 @@ echo "OK: .gitignore updated with Claude output patterns"
 ## Step 13: Create directories
 
 ```bash
-mkdir -p docs/plans docs/sessions
+mkdir -p docs/plans docs/sessions docs/wiki
+```
+
+Create the wiki index:
+
+```bash
+cat > docs/wiki/index.md << 'WIKI_INDEX'
+# Project Wiki
+
+Knowledge base maintained by the context-keeper. Pages are synthesized from
+session findings, reviewer feedback, experiments, and architectural decisions.
+
+## Pages
+
+_No pages yet. The context-keeper will populate this as the project evolves._
+WIKI_INDEX
 ```
 
 ## Step 14: Commit
 
-Stage framework files and both `.gitignore` files:
+Stage framework files, wiki, and both `.gitignore` files:
 
 ```bash
 git add CLAUDE.md .gitignore .claude/.gitignore \
@@ -268,7 +283,7 @@ git add CLAUDE.md .gitignore .claude/.gitignore \
   .claude/CLAUDE.md.template \
   .claude/agents/ .claude/hooks/ .claude/rules/ \
   .claude/commands/ .claude/skills/ .claude/settings.json \
-  docs/
+  docs/ docs/wiki/
 git commit -m "chore: bootstrap solo-dev framework"
 ```
 

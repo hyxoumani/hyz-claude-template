@@ -46,6 +46,13 @@ Code is reviewed automatically via hooks. Review mode configured at bootstrap:
 - **On stop**: `test-gate.sh` — runs the test suite before Claude finishes a task
 - **Alternative review**: `/qwen-review` skill — local Qwen2.5-Coder via Ollama (airgapped)
 
+## Project Wiki
+
+The context-keeper maintains a persistent wiki at `docs/wiki/`. This is the synthesized
+knowledge base for the project — not a collection of individual docs, but interconnected
+pages that compound with every task. When you need to understand a topic, check the wiki
+first before grepping session logs. See `docs/wiki/index.md` for the page catalog.
+
 ## Context Management
 
 IMPORTANT: When compacting, always preserve the full list of modified files, the current
