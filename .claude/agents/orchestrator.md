@@ -58,8 +58,26 @@ For medium and complex tasks:
    conformance — never the implementer's reasoning or failed attempts.
 8. **Decide**: If tests pass and reviewer approves, keep. Otherwise revert and retry (max 3
    attempts) or escalate to user.
-9. **Log**: Spawn context-keeper to update CLAUDE.md, record results, encode lessons,
-   and update wiki pages with new findings.
+9. **Log** ⚠️ MANDATORY: Spawn context-keeper BEFORE responding to the user.
+   Pass: task summary, reviewer findings, files changed, relevant wiki pages to update.
+   Can run in background — don't wait for it, but DO spawn it.
+
+## MANDATORY: Post-task checklist
+
+After EVERY completed task (tests pass, reviewer approves or findings addressed), you MUST
+complete these steps IN ORDER before responding to the user:
+
+1. **Spawn context-keeper** with a brief containing:
+   - What was implemented (task name, files created/modified)
+   - Reviewer findings and how they were resolved
+   - Any gotchas or non-obvious constraints discovered
+   - What wiki pages should be updated (e.g., the task's domain page)
+2. **Update task status** in CLAUDE.md if a task table exists
+3. **Report to user** — only AFTER context-keeper has been spawned
+
+The context-keeper runs in the background — you do NOT need to wait for it to finish
+before reporting to the user. But you MUST spawn it. Skipping this step means the
+project loses institutional memory of what was learned during the task.
 
 ## Context-keeper triggers
 
