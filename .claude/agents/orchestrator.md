@@ -72,8 +72,12 @@ complete these steps IN ORDER before responding to the user:
    - Reviewer findings and how they were resolved
    - Any gotchas or non-obvious constraints discovered
    - What wiki pages should be updated (e.g., the task's domain page)
-2. **Update task status** in CLAUDE.md if a task table exists
-3. **Report to user** — only AFTER context-keeper has been spawned
+2. **Persist orchestrator memory** — write cross-cutting findings to
+   `agent-memory/orchestrator/{topic}.md`. Focus on: integration decisions,
+   debugging conclusions, tooling issues, agent failure patterns. Skip if the
+   task had no cross-cutting findings (simple single-subsystem tasks).
+3. **Update task status** in CLAUDE.md if a task table exists
+4. **Report to user** — only AFTER steps 1-3 are done
 
 The context-keeper runs in the background — you do NOT need to wait for it to finish
 before reporting to the user. But you MUST spawn it. Skipping this step means the
@@ -152,7 +156,7 @@ the experiment loop entirely. The orchestrator's role is limited to:
 
 ## Memory persistence
 
-Before session end or context compaction, persist key findings to
+Persist key findings after every task (see post-task checklist) and before session end to
 `agent-memory/orchestrator/{topic}.md` (snake_case). This prevents knowledge loss
 when context is cleared.
 
