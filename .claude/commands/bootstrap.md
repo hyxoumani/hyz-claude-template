@@ -140,7 +140,34 @@ With conventions detected from pyproject.toml, setup.cfg, or existing code style
 
 Only create rules for languages actually present in the project.
 
-## Step 9: Configure metric (optional)
+## Step 9: Configure review gates
+
+Ask the user via AskUserQuestion:
+
+> The framework includes two AI review gates powered by headless Sonnet:
+>
+> - **Per-edit review** (`sonnet-review-gate.sh`) — reviews every Write/Edit call. Thorough but slower.
+> - **Commit review** (`commit-review-gate.sh`) — reviews the full staged diff at commit time. One review per commit.
+>
+> Both use tool-augmented Sonnet that can read project files, conventions, and grep for callers.
+>
+> Which review mode do you want?
+>
+> A) **Commit only** (recommended) — review at commit time, no per-edit overhead
+> B) **Per-edit only** — review every file change, no commit gate
+> C) **Both** — maximum coverage, slower workflow
+> D) **None** — disable AI review gates entirely
+
+Based on the user's choice, update `.claude/settings.json`:
+
+- **A (commit only)**: Remove the `sonnet-review-gate.sh` hook entry from the `Write|Edit|MultiEdit` matcher. Keep `commit-review-gate.sh` under the `Bash` matcher.
+- **B (per-edit only)**: Add `sonnet-review-gate.sh` to the `Write|Edit|MultiEdit` hooks (after readonly-guard, with timeout 130000). Remove `commit-review-gate.sh` from the `Bash` matcher.
+- **C (both)**: Add `sonnet-review-gate.sh` to the `Write|Edit|MultiEdit` hooks (after readonly-guard, with timeout 130000). Keep `commit-review-gate.sh` under the `Bash` matcher.
+- **D (none)**: Remove `sonnet-review-gate.sh` from `Write|Edit|MultiEdit` if present. Remove `commit-review-gate.sh` from `Bash` matcher.
+
+After updating settings.json, also update the "Review System" section in CLAUDE.md to reflect which gates are active.
+
+## Step 10: Configure metric (optional)
 
 Ask the user via AskUserQuestion:
 
@@ -158,7 +185,7 @@ Ask the user via AskUserQuestion:
 
 If A, update the Metric section of CLAUDE.md with their values.
 
-## Step 10: Verify hooks
+## Step 11: Verify hooks
 
 Test that all hooks are functional:
 
@@ -184,7 +211,7 @@ echo "Testing: {test_command}..."
 
 Run the detected test command with a short timeout to verify it works. Report pass/fail.
 
-## Step 11: Create .gitignore files for Claude-generated artifacts
+## Step 12: Create .gitignore files for Claude-generated artifacts
 
 Create two `.gitignore` files — one inside `.claude/` for Claude-internal generated
 files, and one update to the project root `.gitignore` for project-level outputs.
@@ -225,13 +252,13 @@ done
 echo "OK: .gitignore updated with Claude output patterns"
 ```
 
-## Step 12: Create directories
+## Step 13: Create directories
 
 ```bash
 mkdir -p docs/plans docs/sessions
 ```
 
-## Step 13: Commit
+## Step 14: Commit
 
 Stage framework files and both `.gitignore` files:
 
@@ -247,7 +274,7 @@ git commit -m "chore: bootstrap solo-dev framework"
 
 Do NOT stage `.claude/settings.local.json` or `.claude/agent-memory/`.
 
-## Step 14: Summary
+## Step 15: Summary
 
 Print what was configured:
 - Stack and commands detected
@@ -256,7 +283,7 @@ Print what was configured:
 - Metric configured or skipped
 - `.gitignore` files created (`.claude/.gitignore` + project root)
 
-## Step 15: Next steps
+## Step 16: Next steps
 
 Tell the user bootstrap is complete, then prompt them to relaunch with the orchestrator:
 
