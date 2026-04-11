@@ -21,6 +21,9 @@
   ],
   "skills": [
     "autoresearch",
+    "compact",
+    "compact-agents",
+    "context-check",
     "eval",
     "plan-and-develop",
     "qwen-review"

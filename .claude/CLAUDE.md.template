@@ -50,8 +50,12 @@ Code is reviewed automatically via hooks. Review mode configured at bootstrap:
 
 The context-keeper maintains a persistent wiki at `docs/wiki/`. This is the synthesized
 knowledge base for the project — not a collection of individual docs, but interconnected
-pages that compound with every task. When you need to understand a topic, check the wiki
-first before grepping session logs. See `docs/wiki/index.md` for the page catalog.
+pages that compound with every task.
+
+**For all agents**: Read `docs/wiki/index.md` at task start. Read pages relevant to your
+domain before exploring code. The wiki is pre-synthesized knowledge — faster and more
+complete than re-discovering from source. If you find stale wiki content, flag it in
+your output so the context-keeper can fix it.
 
 ## Context Management
 
