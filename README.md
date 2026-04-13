@@ -5,8 +5,8 @@ A Claude Code framework for autonomous software development. Agents, hooks, skil
 ## What's in the box
 
 ```
-agents/          7 specialized agents (orchestrator, researcher, planner, implementer, tester, reviewer, context-keeper)
-hooks/           6 hooks (safety-net, readonly-guard, commit-review-gate, auto-format, test-gate, sonnet-review-gate)
+agents/          5 specialized agents (orchestrator, researcher, implementer, verifier, context-keeper)
+hooks/           8 hooks (safety-net, readonly-guard, commit-review-gate, auto-format, test-gate, sonnet-review-gate, agent-trace, agent-trace-output)
 skills/          7 skills (autoresearch, compact, compact-agents, context-check, eval, plan-and-develop, qwen-review)
 rules/           Path-scoped rules (rust, testing, git, documentation, agent-memory)
 commands/        Bootstrap command for first-time setup
@@ -45,13 +45,27 @@ claude --agent orchestrator
 
 | Agent | Model | Role |
 |---|---|---|
-| **orchestrator** | opus | Coordinates the pipeline. Scans wiki, routes context to agents. Never writes code. |
-| **researcher** | haiku | Explores codebases. Reads wiki + mistakes log before researching. Produces context summaries. |
-| **planner** | sonnet | Designs implementation plans from research + wiki knowledge. |
-| **implementer** | sonnet | Executes subtasks in isolated worktrees. Checks mistakes log before coding. |
-| **tester** | sonnet | Runs tests, reports structured results. |
-| **reviewer** | sonnet | Reviews diffs with clean context. Classifies mistakes with error taxonomy. |
-| **context-keeper** | haiku | Maintains wiki, CLAUDE.md, rules, session logs, and mistakes log. |
+| **orchestrator** | opus | Coordinates the pipeline. Routes wiki context to agents. Never writes code. |
+| **researcher** | sonnet | Explores codebases AND designs plans. Produces context summaries + plan.md. |
+| **implementer** | sonnet | Executes subtasks in isolated worktrees. |
+| **verifier** | sonnet | Runs tests AND reviews diffs in one pass. Classifies mistakes. |
+| **context-keeper** | haiku | Maintains wiki, CLAUDE.md, rules, and mistake log. |
+
+This 5-agent architecture (4 workers + 1 coordinator) follows SOTA research on multi-agent coordination:
+- **Centralized topology** suppresses error amplification ([DeepMind, 2025](https://arxiv.org/html/2512.08296v1))
+- **4-agent threshold** — coordination gains plateau beyond this ([MAST, Cemri et al.](https://arxiv.org/abs/2503.13657))
+- **Structured artifact flow** between stages prevents hallucination cascading ([MetaGPT](https://arxiv.org/abs/2308.00352))
+
+### Pipeline
+
+```
+Research+Plan → Implement → Verify → Log    (3 handoffs)
+```
+
+1. **Research+Plan**: Researcher explores codebase, produces context summary + plan.md
+2. **Implement**: Implementer(s) execute subtasks from the plan
+3. **Verify**: Verifier runs tests + reviews diff in one pass
+4. **Log**: Context-keeper persists findings to wiki + rules
 
 ### Hooks
 
@@ -59,57 +73,52 @@ claude --agent orchestrator
 |---|---|---|
 | **safety-net** | PreToolUse (Bash) | Blocks `rm -rf`, `git push --force`, `git reset --hard`, etc. |
 | **readonly-guard** | PreToolUse (Write/Edit) | Blocks edits to files listed as read-only in CLAUDE.md. |
-| **commit-review-gate** | PreToolUse (Bash) | Tool-augmented Sonnet reviews staged diff before commit. Can read project files, grep callers, check conventions. |
+| **commit-review-gate** | PreToolUse (Bash) | Tool-augmented Sonnet reviews staged diff before commit. |
 | **auto-format** | PostToolUse (Write/Edit) | Runs project formatter after every edit. |
 | **test-gate** | Stop | Runs the test suite before Claude finishes a task. |
 | **sonnet-review-gate** | (configurable) | Per-edit tool-augmented Sonnet review. Configurable at bootstrap. |
+| **agent-trace** | PreToolUse (Agent) | Logs every agent spawn to `docs/sessions/agent-trace.log`. |
+| **agent-trace-output** | PostToolUse (Agent) | Captures full agent outputs to `docs/sessions/agent-outputs/`. |
 
 ### Skills
 
 | Skill | What it does |
 |---|---|
-| **autoresearch** | Autonomous experiment loop (modify, measure, keep/discard, repeat). Runs overnight. |
-| **compact** | Merges session summaries and experiment results into wiki. Runs mistake pattern detection. |
-| **compact-agents** | Drains agent-specific memory into wiki pages. Reconciles contradictions. |
+| **autoresearch** | Autonomous experiment loop (modify, measure, keep/discard, repeat). |
+| **compact** | Merges session summaries and experiment results into wiki. |
+| **compact-agents** | Drains agent-specific memory into wiki pages. |
 | **context-check** | Audits what each agent loads into context. Reports sizes, staleness, redundancy. |
 | **eval** | Framework self-testing. Runs hook smoke tests and task-based agent evals. |
-| **plan-and-develop** | Structured research → plan → implement workflow. |
+| **plan-and-develop** | Structured research + plan + implement workflow. |
 | **qwen-review** | Local code review via Ollama (airgapped alternative to Sonnet review). |
 
 ### Knowledge system
 
-The framework maintains a persistent, compounding knowledge base inspired by [Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f):
+The framework maintains a persistent, compounding knowledge base:
 
 ```
 docs/wiki/index.md       Content-oriented catalog of all wiki pages
 docs/wiki/{topic}.md     Synthesized knowledge pages with cross-references
 docs/wiki/mistakes.md    Structured mistake log with error taxonomy
-docs/log.md              Append-only chronological knowledge changelog
-docs/sessions/           Ephemeral session summaries (feed into wiki)
+docs/sessions/           Agent trace logs and full output captures
 ```
-
-**How it works:**
-- The **context-keeper** synthesizes all findings into wiki pages — not append-only logs, but living documents that get rewritten as understanding deepens.
-- Every wiki page has cross-references, key decisions, and gotchas.
-- The **orchestrator** reads the wiki index at task start and routes relevant pages to each agent's brief.
-- All agents read relevant wiki pages before starting work — pre-synthesized knowledge, not raw re-discovery.
 
 ### Mistake analysis
 
-Agents report failures in a structured format. The context-keeper logs them to `docs/wiki/mistakes.md` with:
+Agents report failures with a 4-type error taxonomy:
 
-- **Error taxonomy**: 9 types (stale-context, missing-context, wrong-assumption, breaking-change, missing-validation, security, convention-violation, scope-creep, regression)
-- **Root cause chains**: 5 Whys style — traces from symptom to systemic cause
-- **Escalation tiers**: mistakes graduate through increasing automation:
-  - **Gotcha** (wiki) → agent reads and avoids manually
-  - **Rule** (CLAUDE.md/rules) → loaded into context automatically
-  - **Hook** (pre-commit/pre-edit) → blocked programmatically
+| Type | Meaning | Escalation |
+|---|---|---|
+| **context** | Wrong, missing, or stale information | gotcha → rule |
+| **breakage** | Broke existing behavior or reintroduced a bug | rule → hook |
+| **security** | Secrets, injection, unsafe patterns | hook |
+| **quality** | Missing validation, convention violations | rule |
 
-Pattern detection during `/compact` identifies recurring mistake types and domains, and recommends escalation.
+Mistakes graduate through escalation tiers: **gotcha** (wiki) → **rule** (CLAUDE.md) → **hook** (programmatic block).
 
 ### Review gates
 
-Both review hooks use **tool-augmented Sonnet** — the reviewer gets `Read`, `Grep`, `Glob`, `Bash(git log*)`, and `Bash(git blame*)` to explore the codebase, check conventions, and grep for callers. Review mode is configurable at bootstrap:
+Both review hooks use **tool-augmented Sonnet** — the reviewer gets `Read`, `Grep`, `Glob`, `Bash(git log*)`, and `Bash(git blame*)` to explore the codebase. Review mode is configurable at bootstrap:
 
 - **Commit only** (recommended): review at commit time
 - **Per-edit only**: review every file change
@@ -121,8 +130,15 @@ Both review hooks use **tool-augmented Sonnet** — the reviewer gets `Read`, `G
 The orchestrator routes tasks by complexity:
 
 - **Simple** (1-2 files): Skip orchestration. Use Claude Code directly.
-- **Medium** (3-5 files): researcher → planner → implementer → tester → reviewer.
-- **Complex** (6+ files): Full pipeline with parallel implementers in worktrees.
+- **Medium** (3-5 files): Full pipeline, single implementer.
+- **Complex** (6+ files): Full pipeline, parallel implementers in worktrees.
+
+### Agent observability
+
+Every agent spawn and completion is logged via hooks:
+
+- `docs/sessions/agent-trace.log` — TSV timeline of all agent activity
+- `docs/sessions/agent-outputs/` — full output capture per agent for MAST-style trace analysis
 
 ## Principles
 
