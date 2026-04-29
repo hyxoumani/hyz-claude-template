@@ -1,31 +1,24 @@
 {
-  "name": "solo-dev",
-  "version": "0.3.0",
-  "created": "",
+  "name": "claude-template",
+  "version": "0.1.0",
+  "description": "Minimal Claude Code template: 2 agents, 3 skills, 5 hooks, path-scoped rules.",
   "agents": [
-    "orchestrator",
-    "researcher",
-    "planner",
-    "implementer",
-    "tester",
-    "reviewer",
-    "context-keeper"
-  ],
-  "hooks": [
-    "readonly-guard",
-    "safety-net",
-    "commit-review-gate",
-    "auto-format",
-    "sonnet-review-gate",
-    "test-gate"
+    "developer",
+    "analyst"
   ],
   "skills": [
-    "autoresearch",
-    "compact",
-    "compact-agents",
-    "context-check",
-    "eval",
+    "verify",
     "plan-and-develop",
-    "qwen-review"
+    "compact"
+  ],
+  "hooks": [
+    "safety-net",
+    "auto-format",
+    "test-gate",
+    "commit-review-gate",
+    "agent-trace"
+  ],
+  "commands": [
+    "bootstrap"
   ]
 }

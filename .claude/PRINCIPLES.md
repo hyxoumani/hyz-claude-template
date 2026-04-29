@@ -1,61 +1,44 @@
 # Engineering Principles
 
-Rules every agent follows. Non-negotiable.
+Constraints every agent follows. Non-negotiable.
 
-## 1. Spec before implement
+## 1. Think Before Coding
 
-Never write code without understanding the interfaces first. Catch mismatches
-in the design phase, not after 500 lines of implementation. Ask: what are the
-inputs, outputs, error cases, and integration points?
+Don't assume. Don't hide confusion. Surface tradeoffs.
 
-## 2. Root cause or nothing
+- State assumptions explicitly when the task is ambiguous.
+- If two interpretations are plausible, present both rather than picking silently.
+- If you can't explain *why* something is broken, you haven't found the bug.
+- Ask before doing destructive or hard-to-reverse work.
 
-Don't fix symptoms. If you can't explain WHY something is broken, you haven't
-found the bug yet. Three failed hypotheses means stop and escalate.
+## 2. Simplicity First
 
-## 3. Simplicity criterion
+Minimum code that solves the problem. Nothing speculative.
 
-Simpler code that achieves the same result always wins. An improvement that adds
-ugly complexity is not worth it. An improvement from deleting code is always worth it.
-10-line obvious fix > 200-line abstraction. Three similar lines > premature helper.
+- No features that weren't asked for.
+- No abstractions for hypothetical future use.
+- 10 obvious lines beat 200 lines of cleverness.
+- Three similar lines beat a premature helper.
+- Would a senior engineer call this overcomplicated? If yes, cut.
 
-## 4. Minimal diff
+## 3. Surgical Changes
 
-Achieve the goal with the fewest files touched and lines changed. Don't refactor
-adjacent code. Don't add features that weren't asked for. Don't "improve" things
-outside scope. A bug fix doesn't need surrounding code cleaned up.
+Touch only what you must. Clean up only your own mess.
 
-## 5. Verify, don't trust
+- Match existing style exactly. Same naming, error handling, indentation.
+- Don't refactor adjacent code. A bug fix is not a cleanup pass.
+- Remove only what your change made obsolete — not pre-existing dead code.
+- Stay in scope. Out-of-scope needs get reported, not made.
 
-Never say "this should work." Run the tests. Reproduce the bug. Confirm the fix.
-If you can't verify it, don't ship it. Paste the output.
+## 4. Goal-Driven Execution
 
-## 6. Keep or discard, no half-states
+Define success criteria. Loop until verified.
 
-Every change either improves the codebase and stays, or it doesn't and gets reverted.
-No commented-out code, no TODO-someday, no "we'll fix this later" left in the diff.
-Experimental work lives on branches.
+- Convert tasks into measurable goals: tests that pass, commands that exit 0, output that matches.
+- Never claim done without running the verification.
+- Paste the output. "Should work" is not evidence.
+- After 3 failed attempts on the same fix, stop and report what you tried.
 
-## 7. Compound knowledge
+---
 
-When you learn something non-obvious (a gotcha, a pattern, a constraint), persist it.
-Rules files, CLAUDE.md, doc comments. The next session should never re-discover
-what this session already learned.
-
-## 8. Autonomous by default
-
-Don't stop to ask unless genuinely stuck. If the path is clear, take it. If a decision
-is reversible, make it. Only escalate on: ambiguous requirements, destructive actions,
-architectural choices that are hard to undo.
-
-## 9. Search before building
-
-Before introducing a pattern, library, or approach: does the language/framework have
-a built-in? Is there an established solution? Only build custom when you have a concrete
-reason the standard approach doesn't work. Name the reason.
-
-## 10. Errors are for the next reader
-
-Error messages, comments, and commit messages exist for the person (or agent) who reads
-them next. Be specific: name the file, the function, the line. Say what went wrong and
-what to do about it. "Something failed" helps nobody.
+These bias toward caution over speed. For trivial tasks, use judgment.

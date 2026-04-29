@@ -10,21 +10,22 @@ CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
 [ -z "$CMD" ] && exit 0
 
-# Destructive patterns to block
+# Patterns are matched as POSIX extended regex against the command string.
+# Each pattern uses \b or explicit anchors to avoid matching as substrings.
 BLOCKED_PATTERNS=(
-  'rm -rf /'
-  'rm -rf \.'
-  'rm -rf \*'
-  'git push.*--force'
-  'git push.*-f '
-  'git reset --hard'
-  'git clean -fd'
-  'git checkout -- \.'
-  'git restore \.'
-  '> /dev/sda'
+  '(^|[^[:alnum:]])rm[[:space:]]+(-[a-zA-Z]*[rRfF][a-zA-Z]*[[:space:]]+)+/([[:space:]]|$)'
+  '(^|[^[:alnum:]])rm[[:space:]]+(-[a-zA-Z]*[rRfF][a-zA-Z]*[[:space:]]+)+\.([[:space:]]|$)'
+  '(^|[^[:alnum:]])rm[[:space:]]+(-[a-zA-Z]*[rRfF][a-zA-Z]*[[:space:]]+)+\*([[:space:]]|$)'
+  'git[[:space:]]+push.*--force'
+  'git[[:space:]]+push.*[[:space:]]-f([[:space:]]|$)'
+  'git[[:space:]]+reset[[:space:]]+--hard'
+  'git[[:space:]]+clean[[:space:]]+-[a-zA-Z]*f'
+  'git[[:space:]]+checkout[[:space:]]+--[[:space:]]+\.([[:space:]]|$)'
+  'git[[:space:]]+restore[[:space:]]+\.([[:space:]]|$)'
+  '>[[:space:]]*/dev/sd[a-z]'
   'mkfs\.'
-  'dd if='
-  ':(){:|:&};:'
+  'dd[[:space:]]+if='
+  ':\(\)\{:\|:&\};:'
 )
 
 for PATTERN in "${BLOCKED_PATTERNS[@]}"; do

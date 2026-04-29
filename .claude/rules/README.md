@@ -1,47 +1,28 @@
 # Path-Scoped Rules
 
-Rules in this directory load ONLY when Claude touches matching files. This keeps
-CLAUDE.md lean while still enforcing domain-specific conventions.
+Files in this directory encode project conventions. Each rule loads automatically when matching files are touched, so cost stays low when irrelevant.
 
-## Structure
+## Frontmatter
 
-Each rule file has YAML frontmatter with a `paths` glob:
+Add `paths:` to scope a rule. Without it, the rule loads every session.
 
 ```yaml
 ---
 paths:
-  - "**/*.rs"
+  - "src/**/*.rs"
+  - "crates/*/src/**"
 ---
-# Rust conventions for this project
-
-- Use `thiserror` for error types, not manual `impl Display`.
-- All public functions must have doc comments.
-- Prefer `&str` over `String` in function parameters.
 ```
 
-## How it works
+## Conventions
 
-Claude Code loads rules from `.claude/rules/` automatically. Rules with `paths`
-frontmatter only activate when Claude reads or edits files matching those globs.
-Rules without `paths` load every session (same as CLAUDE.md).
+- Keep each rule under 30 lines. Long rules get ignored.
+- Write rules as constraints ("don't do X", "always do Y"), not narratives.
+- Update rules when patterns change. Stale rules are worse than none.
+- Cross-reference `.claude/PRINCIPLES.md` for global behavior — rules are project-specific.
 
-## When to create a rule
+## Files in this directory
 
-- The context-keeper discovers a language-specific convention during a task.
-- A reviewer flags a pattern violation that should be permanent.
-- A convention is too specific for CLAUDE.md but important for consistency.
-
-## File naming
-
-Use the domain as the filename:
-- `rust.md`, `python.md`, `typescript.md` — language conventions
-- `testing.md` — test patterns
-- `api.md` — API design conventions
-- `database.md` — schema and query conventions
-
-## Maintenance
-
-These files are maintained by the context-keeper agent. They should be:
-- Concise (under 50 lines each)
-- Actionable (specific rules, not general advice)
-- Verified (each rule should address a real mistake that occurred)
+- `git.md` — commit format, branching, force-push policy
+- `testing.md` — test naming, flake handling, regression policy
+- Add language/domain rules per project as needed (`rust.md`, `python.md`, etc.)
