@@ -1,182 +1,117 @@
-# solo-dev
+# claude-template
 
-A Claude Code framework for autonomous software development. Agents, hooks, skills, and rules that work together as a `.claude/` directory drop-in.
+A minimal, portable Claude Code template. 2 agents, 3 skills, 5 hooks, path-scoped rules. Works on any project.
 
 ## What's in the box
 
 ```
-agents/          5 specialized agents (orchestrator, researcher, implementer, verifier, context-keeper)
-hooks/           8 hooks (safety-net, readonly-guard, commit-review-gate, auto-format, test-gate, sonnet-review-gate, agent-trace, agent-trace-output)
-skills/          7 skills (autoresearch, compact, compact-agents, context-check, eval, plan-and-develop, qwen-review)
-rules/           Path-scoped rules (rust, testing, git, documentation, agent-memory)
-commands/        Bootstrap command for first-time setup
-evals/           Smoke tests for the framework itself
+.claude/
+  PRINCIPLES.md          4 engineering principles (always loaded)
+  CLAUDE.md.template     project config template (populated by /bootstrap)
+  framework.json         manifest
+
+  agents/
+    developer.md         sonnet, worktree-isolated, full edit tools
+    analyst.md           haiku, read-only, for noisy investigation
+
+  skills/
+    verify/              run tests + review diff
+    plan-and-develop/    research → plan → implement workflow for medium+ changes
+    compact/             synthesize session findings into docs/wiki/
+
+  hooks/
+    safety-net.sh        blocks rm -rf, force-push, etc.
+    auto-format.sh       formats files after edits
+    test-gate.sh         runs tests on Stop
+    commit-review-gate.sh tool-augmented Sonnet review of staged diff
+    agent-trace.sh       logs subagent dispatches
+
+  rules/
+    git.md, testing.md   global conventions
+    {lang}.md            path-scoped, created per project by /bootstrap
+
+  commands/
+    bootstrap.md         first-run setup
 ```
 
 ## Setup
 
-1. Copy this repo into your project as `.claude/`:
-
 ```bash
-git clone https://github.com/YOUR_USERNAME/claude-ref.git .claude
-```
+# Drop the framework into your project
+git clone https://github.com/YOUR_USERNAME/claude-template.git .claude
 
-2. Bootstrap:
-
-```bash
+# Bootstrap
 claude "/bootstrap"
-```
 
-This scans your project, populates `CLAUDE.md`, makes hooks executable, creates language-specific rules, and lets you configure review gates and the project wiki.
-
-3. Start working:
-
-```bash
-# Simple tasks — use Claude Code directly
+# Start working
 claude
-
-# Complex tasks — use the orchestrator
-claude --agent orchestrator
 ```
 
-## Architecture
+`/bootstrap` discovers your stack, populates `CLAUDE.md`, makes hooks executable, and creates language-specific rules.
 
-### Agents
+## How it works
 
-| Agent | Model | Role |
+### Default flow
+
+```
+You ask Claude to do something
+  │
+  ├── Simple change (1-2 files)         → Edit inline
+  ├── Noisy investigation needed        → Task → analyst (haiku, RO)
+  ├── Multi-file or risky change        → Task → developer (sonnet, worktree)
+  └── 6+ files, multi-subsystem         → /plan-and-develop
+
+After any change:
+  /verify (tests + diff review) → APPROVE | REQUEST_CHANGES | REJECT
+
+End of session:
+  /compact → drains findings into docs/wiki/
+```
+
+The main session is the orchestrator. Subagents run in fresh contexts with restricted tools and return ≤20-line summaries. Bulky artifacts (logs, full diffs) live on disk in `runs/{timestamp}/`, never in main context.
+
+### Why 2 agents
+
+Most multi-agent templates over-decompose. With this template, the *fresh context per dispatch* property comes from the `Task` tool itself — having more agent definitions doesn't add intelligence, just config overhead. Two definitions cover the structural distinctions that matter:
+
+- **`developer`** centralizes worktree isolation + sonnet + edit permissions
+- **`analyst`** centralizes read-only scoping + haiku for cost on noisy reads
+
+Anything else is either a skill or an inline action.
+
+## Hooks
+
+| Hook | Event | Purpose |
 |---|---|---|
-| **orchestrator** | opus | Coordinates the pipeline. Routes wiki context to agents. Never writes code. |
-| **researcher** | sonnet | Explores codebases AND designs plans. Produces context summaries + plan.md. |
-| **implementer** | sonnet | Executes subtasks in isolated worktrees. |
-| **verifier** | sonnet | Runs tests AND reviews diffs in one pass. Classifies mistakes. |
-| **context-keeper** | haiku | Maintains wiki, CLAUDE.md, rules, and mistake log. |
-
-This 5-agent architecture (4 workers + 1 coordinator) follows SOTA research on multi-agent coordination:
-- **Centralized topology** suppresses error amplification ([DeepMind, 2025](https://arxiv.org/html/2512.08296v1))
-- **4-agent threshold** — coordination gains plateau beyond this ([MAST, Cemri et al.](https://arxiv.org/abs/2503.13657))
-- **Structured artifact flow** between stages prevents hallucination cascading ([MetaGPT](https://arxiv.org/abs/2308.00352))
-
-### Pipeline
-
-```
-Research+Plan → Implement → Verify → Log    (3 handoffs)
-```
-
-1. **Research+Plan**: Researcher explores codebase, produces context summary + plan.md
-2. **Implement**: Implementer(s) execute subtasks from the plan
-3. **Verify**: Verifier runs tests + reviews diff in one pass
-4. **Log**: Context-keeper persists findings to wiki + rules
-
-### Hooks
-
-| Hook | Event | What it does |
-|---|---|---|
-| **safety-net** | PreToolUse (Bash) | Blocks `rm -rf`, `git push --force`, `git reset --hard`, etc. |
-| **readonly-guard** | PreToolUse (Write/Edit) | Blocks edits to files listed as read-only in CLAUDE.md. |
-| **commit-review-gate** | PreToolUse (Bash) | Tool-augmented Sonnet reviews staged diff before commit. |
-| **auto-format** | PostToolUse (Write/Edit) | Runs project formatter after every edit. |
-| **test-gate** | Stop | Runs the test suite before Claude finishes a task. |
-| **sonnet-review-gate** | (configurable) | Per-edit tool-augmented Sonnet review. Configurable at bootstrap. |
-| **agent-trace** | PreToolUse (Agent) | Logs every agent spawn to `docs/sessions/agent-trace.log`. |
-| **agent-trace-output** | PostToolUse (Agent) | Captures full agent outputs to `docs/sessions/agent-outputs/`. |
-
-### Skills
-
-| Skill | What it does |
-|---|---|
-| **autoresearch** | Autonomous experiment loop (modify, measure, keep/discard, repeat). |
-| **compact** | Merges session summaries and experiment results into wiki. |
-| **compact-agents** | Drains agent-specific memory into wiki pages. |
-| **context-check** | Audits what each agent loads into context. Reports sizes, staleness, redundancy. |
-| **eval** | Framework self-testing. Runs hook smoke tests and task-based agent evals. |
-| **plan-and-develop** | Structured research + plan + implement workflow. |
-| **qwen-review** | Local code review via Ollama (airgapped alternative to Sonnet review). |
-
-### Knowledge system
-
-The framework maintains a persistent, compounding knowledge base:
-
-```
-docs/wiki/index.md       Content-oriented catalog of all wiki pages
-docs/wiki/{topic}.md     Synthesized knowledge pages with cross-references
-docs/wiki/mistakes.md    Structured mistake log with error taxonomy
-docs/sessions/           Agent trace logs and full output captures
-```
-
-### Mistake analysis
-
-Agents report failures with a 4-type error taxonomy:
-
-| Type | Meaning | Escalation |
-|---|---|---|
-| **context** | Wrong, missing, or stale information | gotcha → rule |
-| **breakage** | Broke existing behavior or reintroduced a bug | rule → hook |
-| **security** | Secrets, injection, unsafe patterns | hook |
-| **quality** | Missing validation, convention violations | rule |
-
-Mistakes graduate through escalation tiers: **gotcha** (wiki) → **rule** (CLAUDE.md) → **hook** (programmatic block).
-
-### Review gates
-
-Both review hooks use **tool-augmented Sonnet** — the reviewer gets `Read`, `Grep`, `Glob`, `Bash(git log*)`, and `Bash(git blame*)` to explore the codebase. Review mode is configurable at bootstrap:
-
-- **Commit only** (recommended): review at commit time
-- **Per-edit only**: review every file change
-- **Both**: maximum coverage
-- **None**: disable AI review gates
-
-### Complexity-gated routing
-
-The orchestrator routes tasks by complexity:
-
-- **Simple** (1-2 files): Skip orchestration. Use Claude Code directly.
-- **Medium** (3-5 files): Full pipeline, single implementer.
-- **Complex** (6+ files): Full pipeline, parallel implementers in worktrees.
-
-### Agent observability
-
-Every agent spawn and completion is logged via hooks:
-
-- `docs/sessions/agent-trace.log` — TSV timeline of all agent activity
-- `docs/sessions/agent-outputs/` — full output capture per agent for MAST-style trace analysis
+| `safety-net.sh` | PreToolUse(Bash) | Blocks destructive commands |
+| `commit-review-gate.sh` | PreToolUse(Bash) on git commit | Tool-augmented Sonnet reviews staged diff |
+| `auto-format.sh` | PostToolUse(Write/Edit) | Runs language formatter |
+| `test-gate.sh` | Stop | Runs test command, blocks if failing |
+| `agent-trace.sh` | PreToolUse(Agent) | Logs subagent spawns to `docs/sessions/agent-trace.log` |
 
 ## Principles
 
-See [PRINCIPLES.md](PRINCIPLES.md). Ten engineering rules every agent follows:
+See [`.claude/PRINCIPLES.md`](.claude/PRINCIPLES.md). Four constraints, every agent follows:
 
-1. Spec before implement
-2. Root cause or nothing
-3. Simplicity criterion
-4. Minimal diff
-5. Verify, don't trust
-6. Keep or discard, no half-states
-7. Compound knowledge
-8. Autonomous by default
-9. Search before building
-10. Errors are for the next reader
+1. **Think Before Coding** — surface assumptions, don't hide confusion
+2. **Simplicity First** — minimum code, nothing speculative
+3. **Surgical Changes** — touch only what you must
+4. **Goal-Driven Execution** — define success criteria, verify before claiming done
 
-## Running evals
-
-```bash
-# Smoke test all hooks
-bash evals/run-smoke.sh
-
-# Test a specific hook
-bash evals/run-smoke.sh hook-safety-net
-
-# Full eval runner (after bootstrap, in a git repo)
-bash .claude/hooks/eval-runner.sh --trials 3
-```
+Adapted from [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills).
 
 ## Customization
 
-- **Add language rules**: Create `.claude/rules/{language}.md` with `paths` frontmatter.
-- **Configure review gates**: Choose review mode during `/bootstrap` or edit `settings.json` directly.
-- **Swap review hook**: Replace Sonnet with local Qwen — see `skills/qwen-review/SKILL.md`.
-- **Configure autoresearch**: Set metric, run command, and time budget in CLAUDE.md during bootstrap.
-- **Add eval tasks**: Drop `.md` files in `evals/tasks/` with verification checks.
-- **Compact knowledge**: Run `/compact` to merge sessions into wiki, `/compact-agents` to drain agent memory.
-- **Audit context**: Run `/context-check` to see what each agent loads and identify bloat.
+- **Add language rules**: drop `.claude/rules/{lang}.md` with `paths:` frontmatter.
+- **Add project skills**: drop `.claude/skills/{name}/SKILL.md` with a clear `description:` for routing.
+- **Disable a hook**: remove its entry from `.claude/settings.json`.
+
+## Roadmap
+
+- v0.2: `/eval` skill + `evals/` smoke runner for template self-verification
+- v0.2: `/context-check` skill for context-bloat audits
+- v0.3: `/autonomous-dev` skill + `state/` durable iteration state for unattended overnight loops
+- v0.3: `halt-monitor.sh` hook for budget/iteration caps in autonomous mode
 
 ## License
 

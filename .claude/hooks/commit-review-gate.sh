@@ -7,16 +7,12 @@
 set -euo pipefail
 
 INPUT=$(cat)
-
-# Only trigger on git commit commands
 CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
-[[ "$CMD" =~ ^git\ commit ]] || exit 0
+[[ "$CMD" =~ ^git[[:space:]]+commit ]] || exit 0
 
-# Get the staged diff
 DIFF=$(git diff --cached 2>/dev/null)
 [ -z "$DIFF" ] && exit 0
 
-# Build review prompt — Sonnet gets tools to explore the codebase itself
 REVIEW_PROMPT="You are a code reviewer. A commit is about to be made. Here is the staged diff:
 
 \`\`\`diff
@@ -30,7 +26,7 @@ Use your tools to understand the context:
 4. Check git log for recent history on heavily-changed files if relevant
 
 Then respond with ONLY valid JSON:
-{\"verdict\": \"approve\" or \"deny\", \"reason\": \"brief explanation\", \"issues\": [\"list of specific issues if deny\"]}
+{\"verdict\": \"approve\" or \"deny\", \"reason\": \"brief explanation\", \"issues\": [\"specific issues if deny\"]}
 
 Focus ONLY on:
 - Bugs, logic errors, off-by-one mistakes
@@ -41,7 +37,6 @@ Focus ONLY on:
 
 Do NOT flag: style preferences, naming opinions, or minor nitpicks."
 
-# Call headless Claude with Sonnet + tools (120s timeout for tool usage)
 RESPONSE=$(timeout 120 claude -p "$REVIEW_PROMPT" \
   --model sonnet \
   --allowedTools "Read,Grep,Glob,Bash(git log*),Bash(git blame*)" \

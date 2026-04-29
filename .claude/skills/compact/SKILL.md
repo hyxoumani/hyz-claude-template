@@ -1,135 +1,83 @@
-# Compact
+---
+name: compact
+description: Synthesize session findings, recent changes, and reviewer feedback into the project wiki at docs/wiki/. Use at end of session, before /clear, or periodically as hygiene to ensure knowledge compounds across sessions.
+---
 
-Triggers the context-keeper to synthesize accumulated knowledge into the project wiki.
-Merges session summaries, reviewer findings, experiment results, and agent memory into
-`docs/wiki/` pages — then runs a lint pass to clean up contradictions and stale references.
+# /compact
 
-Use this when context is getting long, before `/clear`, or at the end of a work session
-to ensure nothing is lost.
+Drains accumulated knowledge into `docs/wiki/`. Wiki pages are synthesized understanding — not changelogs, not appended notes. Each page reads as current truth.
 
-## When to use
-
-- Before running `/clear` to reset context — compact first so findings persist
-- After a long session with multiple tasks
-- After autoresearch runs to synthesize experiment findings
-- When you notice agents re-discovering things from previous sessions
-- Periodically as hygiene (e.g., end of day)
-
-## Workflow
-
-### Step 1: Gather unmerged knowledge
-
-Collect everything that hasn't been synthesized into the wiki yet:
+## Step 1: Gather what's unmerged
 
 ```bash
-# Recent session summaries
-ls -t docs/sessions/*.md 2>/dev/null | head -10
-
-# Recent git activity for context
-git log --oneline -20
-
-# Current wiki state
-ls docs/wiki/ 2>/dev/null
-
-# Current knowledge log
-tail -20 docs/log.md 2>/dev/null
+ls -t docs/sessions/*.md 2>/dev/null | head -10   # recent session summaries
+git log --oneline -20                              # recent activity
+ls docs/wiki/*.md 2>/dev/null                      # current wiki state
 ```
 
-Read the recent session summaries. Read `docs/wiki/index.md` to understand what wiki
-pages already exist.
+Read recent session summaries and `docs/wiki/index.md`. Identify what's new since the last compact.
 
-### Step 2: Identify gaps
+## Step 2: Map findings to wiki pages
 
-Compare what's in the session summaries and recent git history against what's already
-in the wiki. Look for:
+| Type of finding | Wiki destination |
+|---|---|
+| Architecture decision | `docs/wiki/{subsystem}.md` → `## Key decisions` |
+| Pattern discovery | `docs/wiki/patterns.md` or domain-specific page |
+| Constraint identified | `docs/wiki/{domain}.md` → `## Gotchas` |
+| Bug rationale / fix | `docs/wiki/{subsystem}.md` → `## Gotchas` |
+| Reviewer recurring issue | `docs/wiki/{domain}.md` → `## Gotchas` |
 
-- New topics that don't have wiki pages yet
-- Existing pages that are missing recent findings
-- Reviewer findings or bug fixes that revealed gotchas not yet documented
-- Architecture decisions made but not recorded
-- Experiment results not yet synthesized
+## Step 3: Update or create pages
 
-### Step 3: Update the wiki
+**New page** (`docs/wiki/{topic}.md`, kebab-case):
 
-For each gap found, either create a new page or update an existing one.
-
-**Creating a new page** (`docs/wiki/{topic}.md`):
 ```markdown
 # {Topic}
 
-{Synthesized understanding from all available sources.}
+{Synthesized understanding — what's true now, not how we got here.}
 
 ## Key decisions
 - {Decision}: {why, what alternatives were rejected}
 
 ## Gotchas
-- {Non-obvious things that caused bugs or confusion}
+- {Non-obvious issue}: {how to avoid}
 
 ## Related
-- [{Other topic}](other-topic.md) — {relationship}
+- [{other-topic}](other-topic.md) — {relationship}
 ```
 
-**Updating an existing page**: Rewrite sections to incorporate new knowledge. The page
-should read as current truth, not as a changelog. Don't just append — synthesize.
+**Existing page**: rewrite sections to incorporate new knowledge. Don't append — synthesize.
 
-**Cross-references**: When updating a page, check all pages listed in its `## Related`
-section. Update them too if the new information affects them. Add new cross-references
-if the update connects to pages not yet linked.
+Constraints:
+- Each page ≤100 lines. Split if larger.
+- Every page has a `## Related` section.
+- When updating a page, check pages it links to. Update them if affected.
 
-### Step 4: Update the index
+## Step 4: Update the index
 
-Update `docs/wiki/index.md` to include any new pages. Group pages by domain, not
-alphabetically.
+Update `docs/wiki/index.md` with any new pages, grouped by domain (not alphabetically).
 
-### Step 5: Mistake pattern detection
+## Step 5: Lint pass
 
-Read `docs/wiki/mistakes.md`. Analyze logged mistakes for systemic patterns:
+- `CLAUDE.md` still under 150 lines? Commands still correct?
+- Wiki pages over 100 lines? Split.
+- Orphan pages not linked from index or any other page?
+- `> CONTRADICTION:` markers that can now be resolved?
 
-1. **Type clustering**: Are 3+ mistakes sharing the same error type (e.g., `missing-context`,
-   `wrong-assumption`)? This signals a pipeline problem, not an agent problem.
-   - `missing-context` cluster → orchestrator briefs need more context, or wiki is incomplete
-   - `wrong-assumption` cluster → researcher isn't verifying claims against code
-   - `breaking-change` cluster → reviewer needs to grep for callers more aggressively
-   - `stale-context` cluster → wiki pages are outdated, run lint pass
+Fix issues in place.
 
-2. **Domain clustering**: Are 3+ mistakes in the same domain? That area needs:
-   - A dedicated wiki page if one doesn't exist
-   - Richer gotchas if the page exists but mistakes keep happening
-   - A path-scoped rule in `.claude/rules/` for automated enforcement
+## Step 6: Log
 
-3. **Escalation audit**: Are any mistakes still at **gotcha** tier but recurring?
-   Escalate to **rule** or **hook**. The goal is: every recurring mistake eventually
-   becomes automated prevention.
+Append one line to `docs/log.md`:
 
-4. **Root cause depth**: Are root cause chains consistently shallow ("wrong output")?
-   Push for deeper analysis — the systemic cause is what prevents recurrence.
-
-Report patterns found and escalation recommendations.
-
-### Step 6: Lint pass
-
-Audit all documentation for health:
-
-1. **CLAUDE.md**: Still accurate? Under 150 lines? Commands still correct?
-2. **`.claude/rules/`**: Any rules referencing deleted files or functions? Any orphan
-   rules whose path globs match nothing?
-3. **Wiki pages**: Any pages over 100 lines that should be split? Any orphan pages
-   not linked from index or other pages? Any `CONTRADICTION` flags that can now be
-   resolved?
-4. **Cross-references**: Grep wiki pages for topics mentioned but not linked.
-5. **Mistakes log**: Any mistakes marked "pending" escalation that can now be resolved?
-
-Fix issues in-place.
-
-### Step 7: Log and summarize
-
-Append to `docs/log.md`:
 ```
 YYYY-MM-DD — Compact: {summary of what was merged/created/cleaned}
 ```
 
-Report to the user:
+## Report
+
+Tell the user:
 - Wiki pages created or updated
-- Contradictions found and resolved (or flagged)
-- Stale content cleaned up
-- Any open questions that need user input
+- Contradictions resolved (or flagged)
+- Stale content cleaned
+- Open questions needing user input

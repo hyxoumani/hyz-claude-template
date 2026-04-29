@@ -27,51 +27,25 @@ _TBD_
 
 _TBD_
 
-## Key Dependencies
-
-_TBD_
-
 ## Read-only files
 
+Files in this list will not be edited by Claude or its subagents. One pattern per line.
+
+```
 _TBD_
+```
 
-## Review System
+## Conventions
 
-Code is reviewed automatically via hooks. Review mode configured at bootstrap:
+See `.claude/PRINCIPLES.md` for global engineering principles.
+See `.claude/rules/` for path-scoped conventions (loaded automatically when matching files are touched).
 
-- **Review mode**: _TBD_ (commit-only / per-edit-only / both / none)
-- **Per-edit guard**: `readonly-guard.sh` blocks writes to protected files
-- **Post-edit**: `auto-format.sh` — auto-runs project formatter after every edit
-- **Safety**: `safety-net.sh` — blocks destructive commands (`rm -rf`, `git push --force`, etc.)
-- **On stop**: `test-gate.sh` — runs the test suite before Claude finishes a task
-- **Alternative review**: `/qwen-review` skill — local Qwen2.5-Coder via Ollama (airgapped)
+## Workflow
 
-## Project Wiki
-
-The context-keeper maintains a persistent wiki at `docs/wiki/`. This is the synthesized
-knowledge base for the project — not a collection of individual docs, but interconnected
-pages that compound with every task.
-
-**For all agents**: Read `docs/wiki/index.md` at task start. Read pages relevant to your
-domain before exploring code. The wiki is pre-synthesized knowledge — faster and more
-complete than re-discovering from source. If you find stale wiki content, flag it in
-your output so the context-keeper can fix it.
-
-**Mistakes log**: `docs/wiki/mistakes.md` records past agent failures with root cause
-analysis and error classification. Check it before starting work in any domain to avoid
-repeating known mistakes. Mistakes escalate: gotcha → rule → hook.
-
-## Context Management
-
-IMPORTANT: When compacting, always preserve the full list of modified files, the current
-subtask being worked on, and any test commands or error output from the most recent run.
-
-## Metric
-
-- **Name**: `_TBD_`
-- **Direction**: `_TBD_` (lower/higher is better)
-- **Run command**: `_TBD_`
-- **Extract command**: `_TBD_`
-- **Time budget**: `300s`
+- **Default**: main session orchestrates 2 agents (`developer`, `analyst`) and skills (`/verify`, `/plan-and-develop`, `/compact`).
+- **Read-only research**: dispatch `analyst` (haiku) when output would be noisy.
+- **Edits at risk**: dispatch `developer` (sonnet, worktree-isolated) for multi-file or breaking changes.
+- **After any change**: invoke `/verify` before declaring done.
+- **End of session**: invoke `/compact` to drain findings into `docs/wiki/`.
 
 <!-- BOOTSTRAPPED: Do not remove this marker. /bootstrap uses it to detect re-runs. -->
